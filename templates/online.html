@@ -1,0 +1,246 @@
+{{ template "header.html" . }}
+
+<div class="container mt-5">
+    <div class="card shadow p-4 mx-auto" style="max-width: 600px; border-top: 5px solid #28a745;">
+        <h2 class="text-center mb-4">Запись на онлайн-консультацию</h2>
+        <p class="text-center text-muted small mb-3">Онлайн-консультации проводятся <strong>в субботу и воскресенье</strong>, с 12:00 до 18:00</p>
+        <form id="onlineBookingForm">
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Направление</label>
+                <select id="specialization" class="form-select form-select-lg" required>
+                    <option value="" disabled selected>Выберите направление...</option>
+                    <option value="Терапевт">Терапия (Online)</option>
+                    <option value="Кардиолог">Кардиология (Online)</option>
+                    <option value="Невролог">Неврология (Online)</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Врач</label>
+                <select id="doctorList" class="form-select form-select-lg" disabled required>
+                    <option value="">Сначала выберите направление</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Дата консультации</label>
+                <input type="date" id="appointmentDate" class="form-control" required>
+                <div class="form-text text-danger d-none" id="dateError">Онлайн-консультации только в субботу и воскресенье</div>
+            </div>
+
+            <div class="mb-3" id="timeSlotBlock" style="display:none!important;">
+                <label class="form-label fw-bold">Время консультации</label>
+                <div id="timeSlots" class="d-flex flex-wrap gap-2 mt-1"></div>
+                <input type="hidden" id="selectedTime" required>
+                <div class="form-text text-danger d-none" id="timeError">Пожалуйста, выберите время</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Ваше имя</label>
+                <input type="text" id="patientName" class="form-control" placeholder="Иван Иванов" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Телефон для связи</label>
+                <input type="tel" id="patientPhone" class="form-control" placeholder="+7 (___) ___-__-__" required>
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-bold">Email (куда отправить ссылку на созвон)</label>
+                <input type="email" id="patientEmail" class="form-control" placeholder="example@mail.ru" required>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg w-100">Забронировать онлайн-прием</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const specSelect    = document.getElementById('specialization');
+    const docSelect     = document.getElementById('doctorList');
+    const dateInput     = document.getElementById('appointmentDate');
+    const dateError     = document.getElementById('dateError');
+    const timeSlotBlock = document.getElementById('timeSlotBlock');
+    const timeSlotsDiv  = document.getElementById('timeSlots');
+    const selectedTime  = document.getElementById('selectedTime');
+    const timeError     = document.getElementById('timeError');
+    const bookingForm   = document.getElementById('onlineBookingForm');
+
+    // Минимальная дата — сегодня
+    const today = new Date();
+    const yyyy  = today.getFullYear();
+    const mm    = String(today.getMonth() + 1).padStart(2, '0');
+    const dd    = String(today.getDate()).padStart(2, '0');
+    dateInput.min = `${yyyy}-${mm}-${dd}`;
+
+    const ALL_SLOTS = ['12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+    // Только суббота (6) и воскресенье (0)
+    function isWeekend(dateStr) {
+        const d   = new Date(dateStr + 'T00:00:00');
+        const day = d.getDay();
+        return day === 0 || day === 6;
+    }
+
+    async function loadDoctors(targetDocId) {
+        if (!specSelect.value) return;
+        docSelect.disabled = false;
+        docSelect.innerHTML = '<option>Загрузка...</option>';
+        try {
+            const res = await fetch('/api/get_doctors?spec=' + encodeURIComponent(specSelect.value));
+            const doctors = await res.json();
+            docSelect.innerHTML = '<option value="" disabled selected>Выберите специалиста</option>';
+            if (doctors && doctors.length > 0) {
+                doctors.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = d.name;
+                    if (targetDocId && d.id == targetDocId) opt.selected = true;
+                    docSelect.appendChild(opt);
+                });
+            } else {
+                docSelect.innerHTML = '<option disabled>Врачи не найдены</option>';
+            }
+        } catch (e) {
+            docSelect.innerHTML = '<option disabled>Ошибка загрузки</option>';
+        }
+        if (dateInput.value && isWeekend(dateInput.value)) loadSlots();
+    }
+
+    async function loadSlots() {
+        const date     = dateInput.value;
+        const doctorId = docSelect.value;
+
+        if (!date || !doctorId || !isWeekend(date)) {
+            timeSlotBlock.style.setProperty('display', 'none', 'important');
+            return;
+        }
+
+        timeSlotsDiv.innerHTML = '<span class="text-muted">Загрузка слотов...</span>';
+        timeSlotBlock.style.removeProperty('display');
+
+        try {
+            const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=online`);
+            const busy = await res.json();
+
+            timeSlotsDiv.innerHTML = '';
+            selectedTime.value = '';
+
+            ALL_SLOTS.forEach(slot => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = slot;
+                btn.className = 'btn btn-outline-success';
+
+                if (busy.includes(slot)) {
+                    btn.disabled = true;
+                    btn.classList.add('btn-outline-secondary');
+                    btn.classList.remove('btn-outline-success');
+                    btn.title = 'Занято';
+                    btn.style.opacity = '0.45';
+                } else {
+                    btn.addEventListener('click', function () {
+                        timeSlotsDiv.querySelectorAll('button').forEach(b => {
+                            b.classList.remove('btn-success');
+                            b.classList.add('btn-outline-success');
+                        });
+                        btn.classList.remove('btn-outline-success');
+                        btn.classList.add('btn-success');
+                        selectedTime.value = slot;
+                        timeError.classList.add('d-none');
+                    });
+                }
+                timeSlotsDiv.appendChild(btn);
+            });
+        } catch (e) {
+            timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка загрузки слотов</span>';
+        }
+    }
+
+    specSelect.addEventListener('change', () => loadDoctors());
+    docSelect.addEventListener('change', () => {
+        if (dateInput.value && isWeekend(dateInput.value)) loadSlots();
+    });
+
+    dateInput.addEventListener('change', function () {
+        const val = dateInput.value;
+        selectedTime.value = '';
+        timeSlotsDiv.innerHTML = '';
+
+        if (!val) {
+            timeSlotBlock.style.setProperty('display', 'none', 'important');
+            dateError.classList.add('d-none');
+            return;
+        }
+
+        if (!isWeekend(val)) {
+            dateError.classList.remove('d-none');
+            timeSlotBlock.style.setProperty('display', 'none', 'important');
+            dateInput.value = '';
+            return;
+        }
+
+        dateError.classList.add('d-none');
+        if (docSelect.value) loadSlots();
+    });
+
+    // URL-параметры
+    const urlParams   = new URLSearchParams(window.location.search);
+    const specFromUrl  = urlParams.get('spec');
+    const docIdFromUrl = urlParams.get('docId');
+    if (specFromUrl) {
+        specSelect.value = specFromUrl;
+        loadDoctors(docIdFromUrl);
+    }
+
+    // Отправка формы
+    bookingForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        if (!docSelect.value) {
+            alert('Пожалуйста, выберите врача');
+            return;
+        }
+        if (!selectedTime.value) {
+            timeError.classList.remove('d-none');
+            timeSlotBlock.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        const formData = {
+            name:        document.getElementById('patientName').value,
+            spec:        specSelect.value,
+            doctor_name: docSelect.options[docSelect.selectedIndex].text,
+            date:        dateInput.value,
+            time:        selectedTime.value,
+            phone:       document.getElementById('patientPhone').value,
+            email:       document.getElementById('patientEmail').value,
+            doctor_id:   parseInt(docSelect.value)
+        };
+
+        try {
+            const response = await fetch('/api/create_online_appointment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            if (response.ok) {
+                alert(`Вы записаны на онлайн-консультацию ${formData.date} в ${formData.time}. Ссылка придёт на почту!`);
+                window.location.href = '/';
+            } else if (response.status === 409) {
+                alert('Этот слот уже занят. Пожалуйста, выберите другое время.');
+                loadSlots();
+            } else {
+                alert('Ошибка при сохранении: ' + await response.text());
+            }
+        } catch (error) {
+            alert('Не удалось связаться с сервером.');
+        }
+    });
+});
+</script>
+
+{{ template "footer.html" . }}
