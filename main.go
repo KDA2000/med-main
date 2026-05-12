@@ -28,11 +28,12 @@ type AppointmentRequest struct {
 	Spec       string `json:"spec"`
 	DoctorID   int    `json:"doctor_id"`
 	DoctorName string `json:"doctor_name"`
-	Date       string `json:"date"` // формат: "2006-01-02"
-	Time       string `json:"time"` // формат: "14:00"
+	Date       string `json:"date"` // "2026-05-12"
+	Time       string `json:"time"` // "14:00"
 }
 
 func initDB() {
+	// Порт 5433 как на твоем скрине
 	connStr := "user=postgres password=password dbname=med_db host=localhost port=5433 sslmode=disable"
 	var err error
 	db, err = sql.Open("postgres", connStr)
@@ -42,7 +43,7 @@ func initDB() {
 	if err = db.Ping(); err != nil {
 		log.Fatal("БД недоступна:", err)
 	}
-	fmt.Println("Связь с базой установлена!")
+	fmt.Println("Связь с базой установлена на порту 5433!")
 }
 
 func render(w http.ResponseWriter, tmplName string, data interface{}) {
@@ -95,10 +96,10 @@ func getDoctorsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := db.Query(`
-		SELECT d.id, d.name, d.experience 
-		FROM doctors d 
-		JOIN specialties s ON d.specialty_id = s.id 
-		WHERE s.name ILIKE $1 || '%'`, shortSpec)
+        SELECT d.id, d.name, d.experience 
+        FROM doctors d 
+        JOIN specialties s ON d.specialty_id = s.id 
+        WHERE s.name ILIKE $1 || '%'`, shortSpec)
 	if err != nil {
 		log.Printf("Ошибка поиска врачей: %v", err)
 		http.Error(w, "DB error", 500)
@@ -116,28 +117,22 @@ func getDoctorsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(doctors)
 }
 
-// GET /api/get_slots?doctor_id=1&date=2025-06-14&type=offline
-// Возвращает список ЗАНЯТЫХ слотов (строки "14:00", "15:00" и т.д.)
+// Находим функцию getSlotsHandler и заменяем запрос:
 func getSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	doctorID := r.URL.Query().Get("doctor_id")
 	date := r.URL.Query().Get("date")
-	apptType := r.URL.Query().Get("type") // "offline" или "online"
-
-	if doctorID == "" || date == "" {
-		http.Error(w, "missing params", 400)
-		return
-	}
+	apptType := r.URL.Query().Get("type")
 
 	table := "appointments"
 	if apptType == "online" {
 		table = "online_appointments"
 	}
 
-	// Получаем занятые слоты из нужной таблицы
+	// ИСПОЛЬЗУЕМ TO_CHAR для удаления секунд прямо в SQL
 	query := fmt.Sprintf(`
-		SELECT TO_CHAR(slot_time, 'HH24:MI') 
-		FROM %s 
-		WHERE doctor_id = $1 AND slot_date = $2`, table)
+        SELECT TO_CHAR(slot_time, 'HH24:MI') 
+        FROM %s 
+        WHERE doctor_id = $1 AND slot_date = $2`, table)
 
 	rows, err := db.Query(query, doctorID, date)
 	if err != nil {
@@ -150,8 +145,9 @@ func getSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	bookedSlots := []string{}
 	for rows.Next() {
 		var t string
-		rows.Scan(&t)
-		bookedSlots = append(bookedSlots, t)
+		if err := rows.Scan(&t); err == nil {
+			bookedSlots = append(bookedSlots, strings.TrimSpace(t))
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -169,55 +165,22 @@ func createAppointmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Проверяем, что слот не занят
-	var count int
-	err := db.QueryRow(`
-        SELECT COUNT(*) FROM appointments 
-        WHERE doctor_id = $1 AND slot_date = $2 AND slot_time = $3`,
-		req.DoctorID, req.Date, req.Time).Scan(&count)
-	if err != nil {
-		http.Error(w, "DB error", 500)
-		return
-	}
-	if count > 0 {
-		http.Error(w, "slot_taken", 409)
-		return
-	}
-
-	// 2. ВСТАВЛЯЕМ ВСЕ ДАННЫЕ (исправлено: убраны null)
-	_, err = db.Exec(`
+	_, err := db.Exec(`
     INSERT INTO appointments (
-        doctor_id, 
-        user_id, 
-        slot_date, 
-        slot_time, 
-        is_online, 
-        patient_name, 
-        phone, 
-        email, 
-        doctor_name, 
-        specialty  
+        doctor_id, user_id, slot_date, slot_time, is_online, 
+        patient_name, phone, email, doctor_name, specialty  
     )
     VALUES ($1, 0, $2, $3, false, $4, $5, $6, $7, $8)`,
-		req.DoctorID,
-		req.Date,
-		req.Time,
-		req.Name,
-		req.Phone,
-		req.Email,
-		req.DoctorName,
-		req.Spec, // Это значение пойдет в колонку specialty
+		req.DoctorID, req.Date, req.Time, req.Name, req.Phone, req.Email, req.DoctorName, req.Spec,
 	)
 	if err != nil {
 		log.Printf("Ошибка вставки (offline): %v", err)
 		http.Error(w, "DB Error", 500)
 		return
 	}
-
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Обработчик для ОНЛАЙН записи (Сб-Вс)
 func createOnlineAppointmentHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		return
@@ -229,31 +192,27 @@ func createOnlineAppointmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем, что слот не занят
-	var count int
-	err := db.QueryRow(`
-		SELECT COUNT(*) FROM online_appointments 
-		WHERE doctor_id = $1 AND slot_date = $2 AND slot_time = $3`,
-		req.DoctorID, req.Date, req.Time).Scan(&count)
-	if err != nil {
-		http.Error(w, "DB error", 500)
-		return
-	}
-	if count > 0 {
-		http.Error(w, "slot_taken", 409)
-		return
-	}
+	// Заполняем ВСЕ колонки дат и времени, чтобы не было NULL
+	query := `
+        INSERT INTO online_appointments (
+            patient_name, specialty, doctor_name, 
+            appointment_date, slot_date, slot_time, 
+            phone, email, doctor_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err = db.Exec(`
-		INSERT INTO online_appointments (patient_name, specialty, doctor_name, appointment_date, phone, email, doctor_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		req.Name, req.Spec, req.DoctorName, req.Date+" "+req.Time, req.Phone, req.Email, req.DoctorID)
+	_, err := db.Exec(query,
+		req.Name, req.Spec, req.DoctorName,
+		req.Date, // в appointment_date
+		req.Date, // в slot_date
+		req.Time, // в slot_time
+		req.Phone, req.Email, req.DoctorID,
+	)
+
 	if err != nil {
 		log.Printf("Ошибка вставки (online): %v", err)
 		http.Error(w, "DB Error", 500)
 		return
 	}
-
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -262,13 +221,11 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// Страницы
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/booking", bookingHandler)
 	http.HandleFunc("/online", onlineHandler)
 	http.HandleFunc("/doctors", doctorsPageHandler)
 
-	// API
 	http.HandleFunc("/api/get_doctors", getDoctorsHandler)
 	http.HandleFunc("/api/get_slots", getSlotsHandler)
 	http.HandleFunc("/api/create_appointment", createAppointmentHandler)

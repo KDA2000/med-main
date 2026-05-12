@@ -118,12 +118,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        timeSlotsDiv.innerHTML = '<span class="text-muted">Загрузка слотов...</span>';
+        timeSlotsDiv.innerHTML = '<span class="text-muted">Проверка доступности...</span>';
         timeSlotBlock.style.removeProperty('display');
 
         try {
+            // Запрашиваем занятые слоты именно для типа online
             const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=online`);
-            const busy = await res.json();
+            const busy = await res.json(); // Придет массив типа ["12:00", "15:00"]
 
             timeSlotsDiv.innerHTML = '';
             selectedTime.value = '';
@@ -132,15 +133,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.textContent = slot;
-                btn.className = 'btn btn-outline-success';
 
-                if (busy.includes(slot)) {
-                    btn.disabled = true;
-                    btn.classList.add('btn-outline-secondary');
-                    btn.classList.remove('btn-outline-success');
-                    btn.title = 'Занято';
-                    btn.style.opacity = '0.45';
+                // ПРОВЕРКА: если слот занят
+                if (busy && busy.includes(slot)) {
+                    btn.disabled = true; // Выключаем кнопку
+                    btn.className = 'btn btn-secondary'; // Красим в серый
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.title = 'Это время уже забронировано';
                 } else {
+                    // Если свободен — обычная логика выбора
+                    btn.className = 'btn btn-outline-success';
                     btn.addEventListener('click', function () {
                         timeSlotsDiv.querySelectorAll('button').forEach(b => {
                             b.classList.remove('btn-success');
@@ -155,7 +158,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 timeSlotsDiv.appendChild(btn);
             });
         } catch (e) {
-            timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка загрузки слотов</span>';
+            console.error("Ошибка загрузки слотов:", e);
+            timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка связи с сервером</span>';
         }
     }
 

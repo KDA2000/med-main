@@ -68,17 +68,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const timeError     = document.getElementById('timeError');
     const bookingForm   = document.getElementById('mainBookingForm');
 
-    // Минимальная дата — сегодня
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm   = String(today.getMonth() + 1).padStart(2, '0');
     const dd   = String(today.getDate()).padStart(2, '0');
     dateInput.min = `${yyyy}-${mm}-${dd}`;
 
-    // Все возможные слоты с 12:00 до 18:00 (каждый час)
     const ALL_SLOTS = ['12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 
-    // Загрузка врачей
     async function loadDoctors(targetDocId) {
         if (!specSelect.value) return;
         docSelect.disabled = false;
@@ -101,74 +98,71 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {
             docSelect.innerHTML = '<option disabled>Ошибка загрузки</option>';
         }
-        // Если дата уже выбрана — обновить слоты
         if (dateInput.value && isWeekday(dateInput.value)) loadSlots();
     }
 
     function isWeekday(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
-        const day = d.getDay(); // 0=Вс, 6=Сб
+        const day = d.getDay(); 
         return day >= 1 && day <= 5;
     }
 
-    // Загрузка занятых слотов и отрисовка кнопок
+    // ОСНОВНАЯ ЛОГИКА БЛОКИРОВКИ КНОПОК
     async function loadSlots() {
-        const date     = dateInput.value;
-        const doctorId = docSelect.value;
+    const date     = dateInput.value;
+    const doctorId = docSelect.value;
+    // Определяем тип записи для запроса
+    const type = window.location.pathname.includes('online') ? 'online' : 'offline';
 
-        if (!date || !doctorId || !isWeekday(date)) {
-            timeSlotBlock.style.setProperty('display', 'none', 'important');
-            return;
-        }
-
-        timeSlotsDiv.innerHTML = '<span class="text-muted">Загрузка слотов...</span>';
-        timeSlotBlock.style.removeProperty('display');
-
-        try {
-            const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=offline`);
-            const busy = await res.json(); // массив занятых слотов, напр. ["13:00","15:00"]
-
-            timeSlotsDiv.innerHTML = '';
-            selectedTime.value = '';
-
-            ALL_SLOTS.forEach(slot => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.textContent = slot;
-                btn.className = 'btn btn-outline-primary';
-
-                if (busy.includes(slot)) {
-                    btn.disabled = true;
-                    btn.classList.add('btn-outline-secondary');
-                    btn.classList.remove('btn-outline-primary');
-                    btn.title = 'Занято';
-                    btn.style.opacity = '0.45';
-                } else {
-                    btn.addEventListener('click', function () {
-                        // Снять выделение со всех
-                        timeSlotsDiv.querySelectorAll('button').forEach(b => {
-                            b.classList.remove('btn-primary');
-                            b.classList.add('btn-outline-primary');
-                        });
-                        // Выделить выбранный
-                        btn.classList.remove('btn-outline-primary');
-                        btn.classList.add('btn-primary');
-                        selectedTime.value = slot;
-                        timeError.classList.add('d-none');
-                    });
-                }
-                timeSlotsDiv.appendChild(btn);
-            });
-        } catch (e) {
-            timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка загрузки слотов</span>';
-        }
+    if (!date || !doctorId || !isWeekday(date)) {
+        timeSlotBlock.style.setProperty('display', 'none', 'important');
+        return;
     }
 
-    // События
+    timeSlotsDiv.innerHTML = '<span class="text-muted">Проверка...</span>';
+    timeSlotBlock.style.removeProperty('display');
+
+    try {
+        const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=${type}`);
+        const busy = await res.json(); 
+
+        timeSlotsDiv.innerHTML = '';
+        selectedTime.value = '';
+
+        ALL_SLOTS.forEach(slot => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = slot;
+
+            // Если время в списке занятых — блокируем намертво
+            if (busy && busy.includes(slot)) {
+                btn.disabled = true;
+                btn.className = 'btn btn-secondary'; // Станет серой
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                btn.title = 'Время уже занято';
+            } else {
+                btn.className = 'btn btn-outline-primary';
+                btn.addEventListener('click', function () {
+                    timeSlotsDiv.querySelectorAll('button').forEach(b => {
+                        b.classList.remove('btn-primary');
+                        b.classList.add('btn-outline-primary');
+                    });
+                    btn.classList.remove('btn-outline-primary');
+                    btn.classList.add('btn-primary');
+                    selectedTime.value = slot;
+                    timeError.classList.add('d-none');
+                });
+            }
+            timeSlotsDiv.appendChild(btn);
+        });
+    } catch (e) {
+        timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка слотов</span>';
+    }
+}
+
     specSelect.addEventListener('change', () => loadDoctors());
-    docSelect.addEventListener('change', () => {
-        if (dateInput.value && isWeekday(dateInput.value)) loadSlots();
-    });
+    docSelect.addEventListener('change', () => loadSlots());
 
     dateInput.addEventListener('change', function () {
         const val = dateInput.value;
@@ -181,7 +175,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        if (!isWeekday(val)) {
+        // Для оффлайн записи проверяем будни
+        if (!window.location.pathname.includes('online') && !isWeekday(val)) {
             dateError.classList.remove('d-none');
             timeSlotBlock.style.setProperty('display', 'none', 'important');
             dateInput.value = '';
@@ -192,8 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (docSelect.value) loadSlots();
     });
 
-    // URL-параметры
-    const urlParams  = new URLSearchParams(window.location.search);
+    const urlParams   = new URLSearchParams(window.location.search);
     const specFromUrl = urlParams.get('spec');
     const docIdFromUrl = urlParams.get('docId');
     if (specFromUrl) {
@@ -201,14 +195,9 @@ document.addEventListener('DOMContentLoaded', function () {
         loadDoctors(docIdFromUrl);
     }
 
-    // Отправка формы
     bookingForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-
-        if (!docSelect.value) {
-            alert('Пожалуйста, выберите врача');
-            return;
-        }
+        if (!docSelect.value) { alert('Пожалуйста, выберите врача'); return; }
         if (!selectedTime.value) {
             timeError.classList.remove('d-none');
             timeSlotBlock.scrollIntoView({ behavior: 'smooth' });
@@ -226,24 +215,27 @@ document.addEventListener('DOMContentLoaded', function () {
             doctor_id:   parseInt(docSelect.value)
         };
 
+        // Авто-выбор эндпоинта в зависимости от страницы
+        const apiUrl = window.location.pathname.includes('online') 
+            ? '/api/create_online_appointment' 
+            : '/api/create_appointment';
+
         try {
-            const response = await fetch('/api/create_appointment', {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
 
             if (response.ok) {
-                alert(`Вы записаны на ${formData.date} в ${formData.time}. Ждём вас!`);
+                alert(`Успешно! Вы записаны на ${formData.date} в ${formData.time}.`);
                 window.location.href = '/';
-            } else if (response.status === 409) {
-                alert('Этот слот уже занят. Пожалуйста, выберите другое время.');
-                loadSlots();
             } else {
-                alert('Ошибка при сохранении: ' + await response.text());
+                alert('Ошибка: ' + await response.text());
+                loadSlots();
             }
         } catch (error) {
-            alert('Не удалось связаться с сервером.');
+            alert('Ошибка связи с сервером.');
         }
     });
 });
