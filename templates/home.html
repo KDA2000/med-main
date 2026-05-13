@@ -1,31 +1,332 @@
 {{ template "header.html" . }}
-<div class="container mt-5">
-    <h2 class="text-center mb-5 fw-bold">Наши направления</h2>
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column">
-                <div class="fs-1 mb-3">❤️</div>
-                <h4 class="fw-bold">Кардиология</h4>
-                <p class="text-muted flex-grow-1">Диагностика и лечение заболеваний сердца.</p>
-                <a href="/booking?spec=Кардиолог" class="btn btn-outline-primary w-100 mt-auto">Выбрать</a>
+
+<!-- HERO SECTION -->
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center min-vh-50 py-5">
+            <div class="col-lg-6">
+                <span class="badge bg-success mb-3 px-3 py-2" style="font-size:0.85rem;">✅ Принимаем без очередей</span>
+                <h1 class="display-4 fw-bold mb-3" style="line-height:1.2;">
+                    Ваше здоровье —<br><span class="text-primary">наш приоритет</span>
+                </h1>
+                <p class="lead text-muted mb-4">
+                    Запишитесь к специалисту онлайн за 2 минуты. Приём очно и по видеосвязи — без лишних звонков и ожидания.
+                </p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="/booking" class="btn btn-primary btn-lg px-4">
+                        📅 Записаться на приём
+                    </a>
+                    <a href="/online" class="btn btn-outline-success btn-lg px-4">
+                        💻 Онлайн-консультация
+                    </a>
+                </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column">
-                <div class="fs-1 mb-3">🧠</div>
-                <h4 class="fw-bold">Неврология</h4>
-                <p class="text-muted flex-grow-1">Лечение нервной системы и головных болей.</p>
-                <a href="/booking?spec=Невролог" class="btn btn-outline-primary w-100 mt-auto">Выбрать</a>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column">
-                <div class="fs-1 mb-3">🩺</div>
-                <h4 class="fw-bold">Терапия</h4>
-                <p class="text-muted flex-grow-1">Комплексное обследование вашего здоровья.</p>
-                <a href="/booking?spec=Терапевт" class="btn btn-outline-primary w-100 mt-auto">Выбрать</a>
+            <div class="col-lg-6 text-center d-none d-lg-block">
+                <div class="hero-illustration">
+                    <div style="font-size: 8rem; line-height:1;">🏥</div>
+                    <div class="mt-3 d-flex justify-content-center gap-4">
+                        <div class="stat-bubble">
+                            <div class="fw-bold fs-4 text-primary">5+</div>
+                            <div class="small text-muted">врачей</div>
+                        </div>
+                        <div class="stat-bubble">
+                            <div class="fw-bold fs-4 text-success">3</div>
+                            <div class="small text-muted">направления</div>
+                        </div>
+                        <div class="stat-bubble">
+                            <div class="fw-bold fs-4 text-warning">7</div>
+                            <div class="small text-muted">дней в неделю<br><span style="font-size:0.7rem">(онлайн — выходные)</span></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- КАК ЭТО РАБОТАЕТ -->
+<div class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center fw-bold mb-5">Как записаться за 3 шага</h2>
+        <div class="row g-4 text-center">
+            <div class="col-md-4">
+                <div class="step-card p-4">
+                    <div class="step-number">1</div>
+                    <div class="fs-1 my-3">🔍</div>
+                    <h5 class="fw-bold">Выберите направление</h5>
+                    <p class="text-muted">Кардиология, неврология или терапия — выберите нужного специалиста</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="step-card p-4">
+                    <div class="step-number">2</div>
+                    <div class="fs-1 my-3">📅</div>
+                    <h5 class="fw-bold">Выберите дату и время</h5>
+                    <p class="text-muted">Доступные слоты обновляются в реальном времени — занятые скрыты автоматически</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="step-card p-4">
+                    <div class="step-number">3</div>
+                    <div class="fs-1 my-3">✅</div>
+                    <h5 class="fw-bold">Подтвердите запись</h5>
+                    <p class="text-muted">Укажите контактные данные и получите подтверждение</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- НАПРАВЛЕНИЯ -->
+<div class="container mt-5">
+    <h2 class="text-center mb-5 fw-bold">Наши направления</h2>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column direction-card">
+                <div class="fs-1 mb-3">❤️</div>
+                <h4 class="fw-bold">Кардиология</h4>
+                <p class="text-muted flex-grow-1">Диагностика и лечение заболеваний сердца и сосудов. ЭКГ, холтер, консультации.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="/booking?spec=Кардиолог" class="btn btn-outline-primary flex-fill">Очно</a>
+                    <a href="/online?spec=Кардиолог" class="btn btn-outline-success flex-fill">Онлайн</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column direction-card">
+                <div class="fs-1 mb-3">🧠</div>
+                <h4 class="fw-bold">Неврология</h4>
+                <p class="text-muted flex-grow-1">Лечение нервной системы, головных болей, мигреней и нарушений сна.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="/booking?spec=Невролог" class="btn btn-outline-primary flex-fill">Очно</a>
+                    <a href="/online?spec=Невролог" class="btn btn-outline-success flex-fill">Онлайн</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-0 p-4 text-center d-flex flex-column direction-card">
+                <div class="fs-1 mb-3">🩺</div>
+                <h4 class="fw-bold">Терапия</h4>
+                <p class="text-muted flex-grow-1">Комплексное обследование, лечение ОРВИ, хронических заболеваний и профосмотры.</p>
+                <div class="d-flex gap-2 mt-auto">
+                    <a href="/booking?spec=Терапевт" class="btn btn-outline-primary flex-fill">Очно</a>
+                    <a href="/online?spec=Терапевт" class="btn btn-outline-success flex-fill">Онлайн</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ПРЕИМУЩЕСТВА -->
+<div class="container my-5">
+    <div class="row g-3">
+        <div class="col-md-3 col-6">
+            <div class="advantage-item text-center p-3">
+                <div class="fs-2">🔒</div>
+                <div class="fw-semibold mt-2 small">Конфиденциально</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="advantage-item text-center p-3">
+                <div class="fs-2">⚡</div>
+                <div class="fw-semibold mt-2 small">Запись за 2 минуты</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="advantage-item text-center p-3">
+                <div class="fs-2">💬</div>
+                <div class="fw-semibold mt-2 small">Онлайн-консультация</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="advantage-item text-center p-3">
+                <div class="fs-2">🏆</div>
+                <div class="fw-semibold mt-2 small">Опытные врачи</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ОТЗЫВЫ -->
+<div class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center fw-bold mb-2">Отзывы пациентов</h2>
+        <p class="text-center text-muted mb-5">Что говорят те, кто уже записался к нам</p>
+
+        <!-- Список отзывов -->
+        <div id="reviewsList" class="row g-3 mb-5">
+            <div class="col-12 text-center text-muted py-4">
+                <div class="spinner-border spinner-border-sm me-2"></div>Загружаем отзывы...
+            </div>
+        </div>
+
+        <!-- Форма добавления отзыва -->
+        <div class="card shadow-sm border-0 mx-auto p-4" style="max-width: 550px;">
+            <h5 class="fw-bold mb-3 text-center">Оставить отзыв</h5>
+            <div class="mb-3">
+                <input type="text" id="reviewName" class="form-control" placeholder="Ваше имя" maxlength="60">
+            </div>
+            <div class="mb-3">
+                <div class="d-flex gap-1 justify-content-center mb-2" id="starRating">
+                    <span class="star fs-3" data-val="1" style="cursor:pointer;">☆</span>
+                    <span class="star fs-3" data-val="2" style="cursor:pointer;">☆</span>
+                    <span class="star fs-3" data-val="3" style="cursor:pointer;">☆</span>
+                    <span class="star fs-3" data-val="4" style="cursor:pointer;">☆</span>
+                    <span class="star fs-3" data-val="5" style="cursor:pointer;">☆</span>
+                </div>
+                <input type="hidden" id="reviewRating" value="0">
+            </div>
+            <div class="mb-3">
+                <textarea id="reviewText" class="form-control" rows="3" placeholder="Напишите о своём опыте..." maxlength="500"></textarea>
+            </div>
+            <button onclick="submitReview()" class="btn btn-primary w-100">Отправить отзыв</button>
+            <div id="reviewMsg" class="text-center mt-2 d-none"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hero-section {
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+    border-bottom: 1px solid #e0e8f0;
+}
+.min-vh-50 { min-height: 50vh; }
+.stat-bubble {
+    background: white;
+    border-radius: 16px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    text-align: center;
+}
+.step-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    position: relative;
+}
+.step-number {
+    width: 36px; height: 36px;
+    background: #0d6efd;
+    color: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: bold;
+    margin: 0 auto;
+}
+.direction-card { transition: transform 0.2s, box-shadow 0.2s; border-radius: 16px !important; }
+.direction-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important; }
+.advantage-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.review-card {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.star { transition: color 0.1s; user-select: none; }
+.star.active { color: #f59e0b; }
+</style>
+
+<script>
+// ---- Загрузка отзывов ----
+async function loadReviews() {
+    try {
+        const res = await fetch('/api/reviews');
+        const reviews = await res.json();
+        const container = document.getElementById('reviewsList');
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = '<div class="col-12 text-center text-muted py-3">Пока отзывов нет. Будьте первым!</div>';
+            return;
+        }
+        container.innerHTML = reviews.map(r => `
+            <div class="col-md-4">
+                <div class="review-card h-100">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <strong>${escHtml(r.name)}</strong>
+                        <span style="color:#f59e0b;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+                    </div>
+                    <p class="text-muted mb-1 small">${escHtml(r.text)}</p>
+                    <div class="text-muted" style="font-size:0.75rem;">${formatDate(r.created_at)}</div>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) {
+        document.getElementById('reviewsList').innerHTML = '<div class="col-12 text-center text-danger">Не удалось загрузить отзывы</div>';
+    }
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatDate(s) {
+    if (!s) return '';
+    try { return new Date(s).toLocaleDateString('ru-RU'); } catch(e) { return ''; }
+}
+
+// ---- Звёздный рейтинг ----
+let selectedRating = 0;
+document.querySelectorAll('.star').forEach(star => {
+    star.addEventListener('mouseover', function() {
+        const val = +this.dataset.val;
+        document.querySelectorAll('.star').forEach(s => {
+            s.textContent = +s.dataset.val <= val ? '★' : '☆';
+            s.style.color = +s.dataset.val <= val ? '#f59e0b' : '';
+        });
+    });
+    star.addEventListener('mouseleave', function() {
+        document.querySelectorAll('.star').forEach(s => {
+            s.textContent = +s.dataset.val <= selectedRating ? '★' : '☆';
+            s.style.color = +s.dataset.val <= selectedRating ? '#f59e0b' : '';
+        });
+    });
+    star.addEventListener('click', function() {
+        selectedRating = +this.dataset.val;
+        document.getElementById('reviewRating').value = selectedRating;
+    });
+});
+
+// ---- Отправка отзыва ----
+async function submitReview() {
+    const name   = document.getElementById('reviewName').value.trim();
+    const text   = document.getElementById('reviewText').value.trim();
+    const rating = selectedRating;
+    const msg    = document.getElementById('reviewMsg');
+
+    if (!name || !text || rating === 0) {
+        msg.className = 'text-danger text-center mt-2';
+        msg.textContent = 'Заполните имя, текст и выберите рейтинг';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, text, rating })
+        });
+        if (res.ok) {
+            msg.className = 'text-success text-center mt-2';
+            msg.textContent = 'Спасибо за ваш отзыв!';
+            document.getElementById('reviewName').value = '';
+            document.getElementById('reviewText').value = '';
+            selectedRating = 0;
+            document.querySelectorAll('.star').forEach(s => { s.textContent = '☆'; s.style.color = ''; });
+            loadReviews();
+        } else {
+            msg.className = 'text-danger text-center mt-2';
+            msg.textContent = 'Ошибка при отправке';
+        }
+    } catch(e) {
+        msg.className = 'text-danger text-center mt-2';
+        msg.textContent = 'Ошибка связи с сервером';
+    }
+    msg.classList.remove('d-none');
+}
+
+loadReviews();
+</script>
+
 {{ template "footer.html" . }}

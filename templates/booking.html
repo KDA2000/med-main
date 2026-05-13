@@ -25,8 +25,12 @@
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Дата приема</label>
-                <input type="date" id="appointmentDate" class="form-control" required>
-                <div class="form-text text-danger d-none" id="dateError">Приём только по будним дням (Пн–Пт)</div>
+                <!-- Используем flatpickr для блокировки выходных -->
+                <input type="text" id="appointmentDate" class="form-control" placeholder="Выберите дату (Пн–Пт)" readonly required>
+                <input type="hidden" id="appointmentDateValue">
+                <div class="form-text text-muted small mt-1">
+                    <span class="text-danger">⬛</span> серые — выходные (недоступно)
+                </div>
             </div>
 
             <div class="mb-3" id="timeSlotBlock" style="display:none!important;">
@@ -56,25 +60,53 @@
     </div>
 </div>
 
+<!-- Flatpickr для красивого календаря с блокировкой дней -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const specSelect    = document.getElementById('specialization');
     const docSelect     = document.getElementById('doctorList');
-    const dateInput     = document.getElementById('appointmentDate');
-    const dateError     = document.getElementById('dateError');
+    const specSelect    = document.getElementById('specialization');
     const timeSlotBlock = document.getElementById('timeSlotBlock');
     const timeSlotsDiv  = document.getElementById('timeSlots');
     const selectedTime  = document.getElementById('selectedTime');
     const timeError     = document.getElementById('timeError');
     const bookingForm   = document.getElementById('mainBookingForm');
-
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm   = String(today.getMonth() + 1).padStart(2, '0');
-    const dd   = String(today.getDate()).padStart(2, '0');
-    dateInput.min = `${yyyy}-${mm}-${dd}`;
+    const hiddenDate    = document.getElementById('appointmentDateValue');
 
     const ALL_SLOTS = ['12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
+
+    // Инициализация flatpickr — блокируем субботу (6) и воскресенье (0)
+    const fp = flatpickr('#appointmentDate', {
+        locale: 'ru',
+        minDate: 'today',
+        dateFormat: 'd.m.Y',
+        disable: [
+            function(date) {
+                return date.getDay() === 0 || date.getDay() === 6;
+            }
+        ],
+        disableMobile: true,
+        onChange: function(selectedDates, dateStr) {
+            if (selectedDates.length === 0) {
+                hiddenDate.value = '';
+                timeSlotBlock.style.setProperty('display', 'none', 'important');
+                return;
+            }
+            // Сохраняем в формате YYYY-MM-DD для API
+            const d = selectedDates[0];
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth()+1).padStart(2,'0');
+            const dd = String(d.getDate()).padStart(2,'0');
+            hiddenDate.value = `${yyyy}-${mm}-${dd}`;
+
+            selectedTime.value = '';
+            timeSlotsDiv.innerHTML = '';
+            if (docSelect.value) loadSlots();
+        }
+    });
 
     async function loadDoctors(targetDocId) {
         if (!specSelect.value) return;
@@ -98,97 +130,65 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (e) {
             docSelect.innerHTML = '<option disabled>Ошибка загрузки</option>';
         }
-        if (dateInput.value && isWeekday(dateInput.value)) loadSlots();
+        if (hiddenDate.value) loadSlots();
     }
 
-    function isWeekday(dateStr) {
-        const d = new Date(dateStr + 'T00:00:00');
-        const day = d.getDay(); 
-        return day >= 1 && day <= 5;
-    }
-
-    // ОСНОВНАЯ ЛОГИКА БЛОКИРОВКИ КНОПОК
     async function loadSlots() {
-    const date     = dateInput.value;
-    const doctorId = docSelect.value;
-    // Определяем тип записи для запроса
-    const type = window.location.pathname.includes('online') ? 'online' : 'offline';
+        const date     = hiddenDate.value;
+        const doctorId = docSelect.value;
 
-    if (!date || !doctorId || !isWeekday(date)) {
-        timeSlotBlock.style.setProperty('display', 'none', 'important');
-        return;
-    }
+        if (!date || !doctorId) {
+            timeSlotBlock.style.setProperty('display', 'none', 'important');
+            return;
+        }
 
-    timeSlotsDiv.innerHTML = '<span class="text-muted">Проверка...</span>';
-    timeSlotBlock.style.removeProperty('display');
+        timeSlotsDiv.innerHTML = '<span class="text-muted">Проверка...</span>';
+        timeSlotBlock.style.removeProperty('display');
 
-    try {
-        const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=${type}`);
-        const busy = await res.json(); 
+        try {
+            const res  = await fetch(`/api/get_slots?doctor_id=${doctorId}&date=${date}&type=offline`);
+            const busy = await res.json();
 
-        timeSlotsDiv.innerHTML = '';
-        selectedTime.value = '';
+            timeSlotsDiv.innerHTML = '';
+            selectedTime.value = '';
 
-        ALL_SLOTS.forEach(slot => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = slot;
+            ALL_SLOTS.forEach(slot => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = slot;
 
-            // Если время в списке занятых — блокируем намертво
-            if (busy && busy.includes(slot)) {
-                btn.disabled = true;
-                btn.className = 'btn btn-secondary'; // Станет серой
-                btn.style.opacity = '0.5';
-                btn.style.cursor = 'not-allowed';
-                btn.title = 'Время уже занято';
-            } else {
-                btn.className = 'btn btn-outline-primary';
-                btn.addEventListener('click', function () {
-                    timeSlotsDiv.querySelectorAll('button').forEach(b => {
-                        b.classList.remove('btn-primary');
-                        b.classList.add('btn-outline-primary');
+                if (busy && busy.includes(slot)) {
+                    btn.disabled = true;
+                    btn.className = 'btn btn-secondary';
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.title = 'Время уже занято';
+                } else {
+                    btn.className = 'btn btn-outline-primary';
+                    btn.addEventListener('click', function () {
+                        timeSlotsDiv.querySelectorAll('button').forEach(b => {
+                            b.classList.remove('btn-primary');
+                            b.classList.add('btn-outline-primary');
+                        });
+                        btn.classList.remove('btn-outline-primary');
+                        btn.classList.add('btn-primary');
+                        selectedTime.value = slot;
+                        timeError.classList.add('d-none');
                     });
-                    btn.classList.remove('btn-outline-primary');
-                    btn.classList.add('btn-primary');
-                    selectedTime.value = slot;
-                    timeError.classList.add('d-none');
-                });
-            }
-            timeSlotsDiv.appendChild(btn);
-        });
-    } catch (e) {
-        timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка слотов</span>';
+                }
+                timeSlotsDiv.appendChild(btn);
+            });
+        } catch (e) {
+            timeSlotsDiv.innerHTML = '<span class="text-danger">Ошибка слотов</span>';
+        }
     }
-}
 
     specSelect.addEventListener('change', () => loadDoctors());
     docSelect.addEventListener('change', () => loadSlots());
 
-    dateInput.addEventListener('change', function () {
-        const val = dateInput.value;
-        selectedTime.value = '';
-        timeSlotsDiv.innerHTML = '';
-
-        if (!val) {
-            timeSlotBlock.style.setProperty('display', 'none', 'important');
-            dateError.classList.add('d-none');
-            return;
-        }
-
-        // Для оффлайн записи проверяем будни
-        if (!window.location.pathname.includes('online') && !isWeekday(val)) {
-            dateError.classList.remove('d-none');
-            timeSlotBlock.style.setProperty('display', 'none', 'important');
-            dateInput.value = '';
-            return;
-        }
-
-        dateError.classList.add('d-none');
-        if (docSelect.value) loadSlots();
-    });
-
-    const urlParams   = new URLSearchParams(window.location.search);
-    const specFromUrl = urlParams.get('spec');
+    // URL-параметры (переход с карточки врача)
+    const urlParams    = new URLSearchParams(window.location.search);
+    const specFromUrl  = urlParams.get('spec');
     const docIdFromUrl = urlParams.get('docId');
     if (specFromUrl) {
         specSelect.value = specFromUrl;
@@ -198,6 +198,7 @@ document.addEventListener('DOMContentLoaded', function () {
     bookingForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         if (!docSelect.value) { alert('Пожалуйста, выберите врача'); return; }
+        if (!hiddenDate.value) { alert('Пожалуйста, выберите дату'); return; }
         if (!selectedTime.value) {
             timeError.classList.remove('d-none');
             timeSlotBlock.scrollIntoView({ behavior: 'smooth' });
@@ -208,20 +209,15 @@ document.addEventListener('DOMContentLoaded', function () {
             name:        document.getElementById('patientName').value,
             spec:        specSelect.value,
             doctor_name: docSelect.options[docSelect.selectedIndex].text,
-            date:        dateInput.value,
+            date:        hiddenDate.value,
             time:        selectedTime.value,
             phone:       document.getElementById('patientPhone').value,
             email:       document.getElementById('patientEmail').value,
             doctor_id:   parseInt(docSelect.value)
         };
 
-        // Авто-выбор эндпоинта в зависимости от страницы
-        const apiUrl = window.location.pathname.includes('online') 
-            ? '/api/create_online_appointment' 
-            : '/api/create_appointment';
-
         try {
-            const response = await fetch(apiUrl, {
+            const response = await fetch('/api/create_appointment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
