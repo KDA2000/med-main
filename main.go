@@ -34,6 +34,22 @@ type Doctor struct {
 	Name          string `json:"name"`
 	Experience    string `json:"experience"`
 	SpecialtyName string `json:"specialty_name"`
+	SpecKey       string `json:"spec_key"` // значение для <select> на странице записи
+}
+
+// specNameToKey переводит название специальности из БД
+// в значение option в <select id="specialization">
+func specNameToKey(name string) string {
+	switch name {
+	case "Терапия":
+		return "Терапевт"
+	case "Кардиология":
+		return "Кардиолог"
+	case "Неврология":
+		return "Невролог"
+	default:
+		return name
+	}
 }
 
 type AppointmentRequest struct {
@@ -154,6 +170,7 @@ func doctorsPageHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var d Doctor
 		rows.Scan(&d.ID, &d.Name, &d.Experience, &d.SpecialtyName)
+		d.SpecKey = specNameToKey(d.SpecialtyName) // ← заполняем правильное значение для select
 		doctors = append(doctors, d)
 	}
 	render(w, "doctors.html", doctors)

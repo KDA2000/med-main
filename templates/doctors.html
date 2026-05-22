@@ -5,13 +5,12 @@
         {{ range . }}
         <div class="col-md-4">
             <div class="card shadow-sm border-0 text-center p-4 h-100">
-                <div class="bg-light rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; font-size: 2.5rem;">👨‍⚕️</div>
+                <div class="bg-light rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px; font-size: 2.5rem;">🧑🏻‍⚕️</div>
                 <h5 class="fw-bold mb-1">{{ .Name }}</h5>
                 <p class="text-primary small mb-3">{{ .SpecialtyName }} • Стаж {{ .Experience }}</p>
                 <div class="d-grid gap-2">
-                    <a href="/booking?spec={{.SpecialtyName}}&docId={{.ID}}" class="btn btn-primary">Записаться</a>
-
-                    <a href="/online?spec={{.SpecialtyName}}&docId={{.ID}}" class="btn btn-outline-success">Онлайн-консультация</a>
+                    <a href="/booking?spec={{ .SpecKey }}&docId={{ .ID }}" class="btn btn-primary">Записаться</a>
+                    <a href="/online?spec={{ .SpecKey }}&docId={{ .ID }}" class="btn btn-outline-success">Онлайн-консультация</a>
                 </div>
             </div>
         </div>

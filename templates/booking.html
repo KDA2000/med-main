@@ -115,22 +115,37 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const res = await fetch('/api/get_doctors?spec=' + encodeURIComponent(specSelect.value));
             const doctors = await res.json();
-            docSelect.innerHTML = '<option value="" disabled selected>Выберите специалиста</option>';
+
+            // Плейсхолдер добавляем без selected если будем выбирать врача автоматически
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.disabled = true;
+            placeholder.textContent = 'Выберите специалиста';
+            if (!targetDocId) placeholder.selected = true;
+            docSelect.innerHTML = '';
+            docSelect.appendChild(placeholder);
+
             if (doctors && doctors.length > 0) {
+                let found = false;
                 doctors.forEach(d => {
                     const opt = document.createElement('option');
                     opt.value = d.id;
                     opt.textContent = d.name;
-                    if (targetDocId && d.id == targetDocId) opt.selected = true;
+                    // Сравниваем как строки — URL всегда строка
+                    if (targetDocId && String(d.id) === String(targetDocId)) {
+                        opt.selected = true;
+                        found = true;
+                    }
                     docSelect.appendChild(opt);
                 });
+                // Если врач выбран автоматически — грузим слоты
+                if (found && hiddenDate.value) loadSlots();
             } else {
                 docSelect.innerHTML = '<option disabled>Врачи не найдены</option>';
             }
         } catch (e) {
             docSelect.innerHTML = '<option disabled>Ошибка загрузки</option>';
         }
-        if (hiddenDate.value) loadSlots();
     }
 
     async function loadSlots() {

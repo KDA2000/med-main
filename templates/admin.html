@@ -2,17 +2,17 @@
 
 <div class="container mt-4">
     <div class="d-flex align-items-center justify-content-between mb-4">
-        <h2 class="fw-bold mb-0">🛡️ Панель администратора</h2>
-        <span class="badge bg-warning text-dark px-3 py-2">Кэш: 1 час (Redis)</span>
+        <h2 class="fw-bold mb-0">Панель администратора</h2>
+        
     </div>
 
     <!-- Вкладки -->
     <ul class="nav nav-tabs mb-4" id="adminTabs">
         <li class="nav-item">
-            <button class="nav-link active" data-tab="offline">📅 Записи на приём ({{len .Appointments}})</button>
+            <button class="nav-link active" data-tab="offline">Записи на приём ({{len .Appointments}})</button>
         </li>
         <li class="nav-item">
-            <button class="nav-link" data-tab="online">💻 Онлайн-записи ({{len .OnlineAppointments}})</button>
+            <button class="nav-link" data-tab="online">Онлайн-записи ({{len .OnlineAppointments}})</button>
         </li>
     </ul>
 
@@ -53,7 +53,7 @@
                 </div>
                 {{ else }}
                 <div class="text-center text-muted py-5">
-                    <div class="fs-1">📭</div>
+                    <div class="fs-1"></div>
                     <p class="mt-2">Записей пока нет</p>
                 </div>
                 {{ end }}
@@ -98,7 +98,7 @@
                 </div>
                 {{ else }}
                 <div class="text-center text-muted py-5">
-                    <div class="fs-1">📭</div>
+                    <div class="fs-1"></div>
                     <p class="mt-2">Онлайн-записей пока нет</p>
                 </div>
                 {{ end }}
@@ -106,9 +106,7 @@
         </div>
     </div>
 
-    <div class="text-end mt-3">
-        <a href="/admin?refresh=1" class="btn btn-outline-secondary btn-sm">🔄 Сбросить кэш и обновить</a>
-    </div>
+    
 </div>
 
 <script>
