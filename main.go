@@ -135,7 +135,7 @@ func initMongo() {
 }
 
 func render(w http.ResponseWriter, tmplName string, data interface{}) {
-	// Функция inc для шаблона (нумерация строк: {{ inc $i }})
+
 	funcMap := template.FuncMap{
 		"inc": func(i int) int { return i + 1 },
 	}
@@ -491,7 +491,7 @@ func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Bad JSON", 400)
 			return
 		}
-		// Валидация
+
 		if strings.TrimSpace(rev.Name) == "" || strings.TrimSpace(rev.Text) == "" {
 			http.Error(w, "Имя и текст обязательны", 400)
 			return

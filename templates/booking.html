@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const bookingForm   = document.getElementById('mainBookingForm');
     const hiddenDate    = document.getElementById('appointmentDateValue');
 
-    // Накладываем интерактивную маску на инпут телефона
+    
     const phoneInput = document.getElementById('patientPhone');
     const phoneMask = IMask(phoneInput, {
         mask: '+7 (000) 000-00-00'
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const ALL_SLOTS = ['12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 
-    // Инициализация flatpickr — блокируем субботу (6) и воскресенье (0)
+    
     const fp = flatpickr('#appointmentDate', {
         locale: 'ru',
         minDate: 'today',
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 timeSlotBlock.style.setProperty('display', 'none', 'important');
                 return;
             }
-            // Сохраняем в формате YYYY-MM-DD для API
+            
             const d = selectedDates[0];
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth()+1).padStart(2,'0');
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const res = await fetch('/api/get_doctors?spec=' + encodeURIComponent(specSelect.value));
             const doctors = await res.json();
 
-            // Плейсхолдер добавляем без selected если будем выбирать врача автоматически
+           
             const placeholder = document.createElement('option');
             placeholder.value = '';
             placeholder.disabled = true;
@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     docSelect.appendChild(opt);
                 });
-                // Если врач выбран автоматически — грузим слоты
+              
                 if (found && hiddenDate.value) loadSlots();
             } else {
                 docSelect.innerHTML = '<option disabled>Врачи не найдены</option>';
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function () {
     specSelect.addEventListener('change', () => loadDoctors());
     docSelect.addEventListener('change', () => loadSlots());
 
-    // URL-параметры (переход с карточки врача)
+    
     const urlParams    = new URLSearchParams(window.location.search);
     const specFromUrl  = urlParams.get('spec');
     const docIdFromUrl = urlParams.get('docId');
