@@ -1,12 +1,12 @@
 {{ template "header.html" . }}
 
-<div class="container mt-4">
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <h2 class="fw-bold mb-0">Панель администратора</h2>
-        
-    </div>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 class="fw-bold mb-0">Панель администратора</h2>
 
-    <!-- Вкладки -->
+ 
+</div>
+
+    
     <ul class="nav nav-tabs mb-4" id="adminTabs">
         <li class="nav-item">
             <button class="nav-link active" data-tab="offline">Записи на приём ({{len .Appointments}})</button>
@@ -16,7 +16,7 @@
         </li>
     </ul>
 
-    <!-- Таблица: очные записи -->
+   
     <div id="tab-offline">
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
@@ -33,6 +33,7 @@
                                 <th>Специализация</th>
                                 <th>Дата</th>
                                 <th>Время</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -46,6 +47,12 @@
                                 <td><span class="badge bg-primary">{{ $a.Specialty }}</span></td>
                                 <td>{{ $a.SlotDate }}</td>
                                 <td>{{ $a.SlotTime }}</td>
+                                <td>
+                                    <form method="post" action="/admin/delete_appointment" class="delete-form" onsubmit="return confirm('Удалить эту запись?');">
+                                        <input type="hidden" name="id" value="{{ $a.ID }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                                    </form>
+                                </td>
                             </tr>
                             {{ end }}
                         </tbody>
@@ -61,7 +68,7 @@
         </div>
     </div>
 
-    <!-- Таблица: онлайн-записи -->
+    
     <div id="tab-online" style="display:none;">
         <div class="card shadow-sm border-0">
             <div class="card-body p-0">
@@ -78,6 +85,7 @@
                                 <th>Специализация</th>
                                 <th>Дата</th>
                                 <th>Время</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -91,6 +99,12 @@
                                 <td><span class="badge bg-success">{{ $a.Specialty }}</span></td>
                                 <td>{{ $a.SlotDate }}</td>
                                 <td>{{ $a.SlotTime }}</td>
+                                <td>
+                                    <form method="post" action="/admin/delete_online_appointment" class="delete-form" onsubmit="return confirm('Удалить эту запись?');">
+                                        <input type="hidden" name="id" value="{{ $a.ID }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                                    </form>
+                                </td>
                             </tr>
                             {{ end }}
                         </tbody>

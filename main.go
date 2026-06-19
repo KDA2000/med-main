@@ -8,18 +8,17 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-// ─── Глобальные переменные ───────────────────────────────────────────────────
 
 var (
 	db          *sql.DB
@@ -27,18 +26,20 @@ var (
 	mongoDB     *mongo.Database
 )
 
-// ─── Структуры ───────────────────────────────────────────────────────────────
+const (
+	adminLogin    = "admin"
+	adminPassword = "12345"
+	sessionCookie = "admin_session"
+)
 
 type Doctor struct {
 	ID            int    `json:"id"`
 	Name          string `json:"name"`
 	Experience    string `json:"experience"`
 	SpecialtyName string `json:"specialty_name"`
-	SpecKey       string `json:"spec_key"` // значение для <select> на странице записи
+	SpecKey       string `json:"spec_key"`
 }
 
-// specNameToKey переводит название специальности из БД
-// в значение option в <select id="specialization">
 func specNameToKey(name string) string {
 	switch name {
 	case "Терапия":
@@ -59,11 +60,10 @@ type AppointmentRequest struct {
 	Spec       string `json:"spec"`
 	DoctorID   int    `json:"doctor_id"`
 	DoctorName string `json:"doctor_name"`
-	Date       string `json:"date"` // "2026-05-12"
-	Time       string `json:"time"` // "14:00"
+	Date       string `json:"date"`
+	Time       string `json:"time"`
 }
 
-// Для страницы администратора
 type AdminAppointment struct {
 	ID          int    `json:"id"`
 	PatientName string `json:"patient_name"`
@@ -80,7 +80,6 @@ type AdminPageData struct {
 	OnlineAppointments []AdminAppointment
 }
 
-// Для MongoDB-отзывов
 type Review struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name      string             `bson:"name"          json:"name"`
@@ -88,8 +87,6 @@ type Review struct {
 	Rating    int                `bson:"rating"        json:"rating"`
 	CreatedAt time.Time          `bson:"created_at"    json:"created_at"`
 }
-
-// ─── Инициализация ────────────────────────────────────────────────────────────
 
 func initDB() {
 	connStr := "user=postgres password=password dbname=med_db host=localhost port=5433 sslmode=disable"
@@ -106,8 +103,8 @@ func initDB() {
 
 func initRedis() {
 	redisClient = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // стандартный порт Redis
-		Password: "",               // без пароля по умолчанию
+		Addr:     "localhost:6379",
+		Password: "",
 		DB:       0,
 	})
 	ctx := context.Background()
@@ -123,7 +120,6 @@ func initMongo() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Подключаемся к MongoDB (стандартный порт 27017)
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		log.Printf("⚠️  MongoDB недоступна: %v — отзывы будут недоступны", err)
@@ -134,11 +130,9 @@ func initMongo() {
 		return
 	}
 
-	mongoDB = client.Database("med_db") // база данных "med_db"
+	mongoDB = client.Database("med_db")
 	fmt.Println("MongoDB: соединение установлено (порт 27017)")
 }
-
-// ─── Шаблоны ─────────────────────────────────────────────────────────────────
 
 func render(w http.ResponseWriter, tmplName string, data interface{}) {
 	// Функция inc для шаблона (нумерация строк: {{ inc $i }})
@@ -157,8 +151,6 @@ func render(w http.ResponseWriter, tmplName string, data interface{}) {
 	tmpl.ExecuteTemplate(w, tmplName, data)
 }
 
-// ─── Страницы ─────────────────────────────────────────────────────────────────
-
 func homeHandler(w http.ResponseWriter, r *http.Request)    { render(w, "home.html", nil) }
 func bookingHandler(w http.ResponseWriter, r *http.Request) { render(w, "booking.html", nil) }
 func onlineHandler(w http.ResponseWriter, r *http.Request)  { render(w, "online.html", nil) }
@@ -170,27 +162,74 @@ func doctorsPageHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var d Doctor
 		rows.Scan(&d.ID, &d.Name, &d.Experience, &d.SpecialtyName)
-		d.SpecKey = specNameToKey(d.SpecialtyName) // ← заполняем правильное значение для select
+		d.SpecKey = specNameToKey(d.SpecialtyName)
 		doctors = append(doctors, d)
 	}
 	render(w, "doctors.html", doctors)
 }
 
-// ─── Панель администратора (с Redis-кэшем) ────────────────────────────────────
-
 const adminCacheKey = "admin:page:data"
 const adminCacheTTL = 1 * time.Hour
+
+func isAdmin(r *http.Request) bool {
+	cookie, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return false
+	}
+
+	return cookie.Value == "authorized"
+}
+
+func requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		if !isAdmin(r) {
+			http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+func adminLoginPage(w http.ResponseWriter, r *http.Request) {
+	render(w, "admin_login.html", nil)
+}
+
+func adminLoginHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
+		return
+	}
+
+	login := r.FormValue("login")
+	password := r.FormValue("password")
+
+	if login != adminLogin || password != adminPassword {
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookie,
+		Value:    "authorized",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   86400,
+	})
+
+	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
 
 func adminHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	forceRefresh := r.URL.Query().Get("refresh") == "1"
 
-	// 1. Сброс кэша по запросу
 	if forceRefresh && redisClient != nil {
 		redisClient.Del(ctx, adminCacheKey)
 	}
 
-	// 2. Пробуем взять из Redis
 	if redisClient != nil && !forceRefresh {
 		cached, err := redisClient.Get(ctx, adminCacheKey).Bytes()
 		if err == nil {
@@ -202,15 +241,13 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 3. Грузим из PostgreSQL
 	data := AdminPageData{}
 
-	// Очные записи
 	rows, err := db.Query(`
-		SELECT id, COALESCE(patient_name,''), COALESCE(phone,''), COALESCE(email,''),
-		       COALESCE(doctor_name,''), COALESCE(specialty,''),
-		       TO_CHAR(slot_date,'YYYY-MM-DD'), TO_CHAR(slot_time,'HH24:MI')
-		FROM appointments ORDER BY slot_date DESC, slot_time DESC`)
+        SELECT id, COALESCE(patient_name,''), COALESCE(phone,''), COALESCE(email,''),
+               COALESCE(doctor_name,''), COALESCE(specialty,''),
+               TO_CHAR(slot_date,'YYYY-MM-DD'), TO_CHAR(slot_time,'HH24:MI')
+        FROM appointments ORDER BY slot_date DESC, slot_time DESC`)
 	if err != nil {
 		log.Printf("Ошибка чтения appointments: %v", err)
 	} else {
@@ -222,24 +259,22 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Онлайн-записи
 	rows2, err := db.Query(`
-		SELECT COALESCE(patient_name,''), COALESCE(phone,''), COALESCE(email,''),
-		       COALESCE(doctor_name,''), COALESCE(specialty,''),
-		       TO_CHAR(slot_date,'YYYY-MM-DD'), TO_CHAR(slot_time,'HH24:MI')
-		FROM online_appointments ORDER BY slot_date DESC, slot_time DESC`)
+        SELECT id, COALESCE(patient_name,''), COALESCE(phone,''), COALESCE(email,''),
+               COALESCE(doctor_name,''), COALESCE(specialty,''),
+               TO_CHAR(slot_date,'YYYY-MM-DD'), TO_CHAR(slot_time,'HH24:MI')
+        FROM online_appointments ORDER BY slot_date DESC, slot_time DESC`)
 	if err != nil {
 		log.Printf("Ошибка чтения online_appointments: %v", err)
 	} else {
 		defer rows2.Close()
 		for rows2.Next() {
 			var a AdminAppointment
-			rows2.Scan(&a.PatientName, &a.Phone, &a.Email, &a.DoctorName, &a.Specialty, &a.SlotDate, &a.SlotTime)
+			rows2.Scan(&a.ID, &a.PatientName, &a.Phone, &a.Email, &a.DoctorName, &a.Specialty, &a.SlotDate, &a.SlotTime)
 			data.OnlineAppointments = append(data.OnlineAppointments, a)
 		}
 	}
 
-	// 4. Сохраняем в Redis на 1 час
 	if redisClient != nil {
 		if b, err := json.Marshal(data); err == nil {
 			redisClient.Set(ctx, adminCacheKey, b, adminCacheTTL)
@@ -248,8 +283,6 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 
 	render(w, "admin.html", data)
 }
-
-// ─── API ──────────────────────────────────────────────────────────────────────
 
 func getDoctorsHandler(w http.ResponseWriter, r *http.Request) {
 	specName := r.URL.Query().Get("spec")
@@ -282,9 +315,9 @@ func getDoctorsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getSlotsHandler(w http.ResponseWriter, r *http.Request) {
-	doctorID  := r.URL.Query().Get("doctor_id")
-	date      := r.URL.Query().Get("date")
-	apptType  := r.URL.Query().Get("type")
+	doctorID := r.URL.Query().Get("doctor_id")
+	date := r.URL.Query().Get("date")
+	apptType := r.URL.Query().Get("type")
 
 	table := "appointments"
 	if apptType == "online" {
@@ -336,7 +369,6 @@ func createAppointmentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Сбрасываем кэш администратора при новой записи
 	invalidateAdminCache()
 
 	w.WriteHeader(http.StatusCreated)
@@ -368,14 +400,61 @@ func createOnlineAppointmentHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Сброс кэша при новой записи
 func invalidateAdminCache() {
 	if redisClient != nil {
 		redisClient.Del(context.Background(), adminCacheKey)
 	}
 }
 
-// ─── API: Отзывы (MongoDB) ────────────────────────────────────────────────────
+func parseIDFromRequest(r *http.Request) (int, error) {
+	idStr := r.FormValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		return 0, fmt.Errorf("некорректный id: %q", idStr)
+	}
+	return id, nil
+}
+
+func deleteAppointmentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := parseIDFromRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if _, err := db.Exec(`DELETE FROM appointments WHERE id = $1`, id); err != nil {
+		log.Printf("Ошибка удаления appointments id=%d: %v", id, err)
+		http.Error(w, "Ошибка удаления записи", http.StatusInternalServerError)
+		return
+	}
+
+	invalidateAdminCache()
+	http.Redirect(w, r, "/admin?tab=offline", http.StatusSeeOther)
+}
+
+func deleteOnlineAppointmentHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id, err := parseIDFromRequest(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if _, err := db.Exec(`DELETE FROM online_appointments WHERE id = $1`, id); err != nil {
+		log.Printf("Ошибка удаления online_appointments id=%d: %v", id, err)
+		http.Error(w, "Ошибка удаления записи", http.StatusInternalServerError)
+		return
+	}
+
+	invalidateAdminCache()
+	http.Redirect(w, r, "/admin?tab=online", http.StatusSeeOther)
+}
 
 func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 	if mongoDB == nil {
@@ -388,7 +467,7 @@ func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 
 	case http.MethodGet:
-		// Получаем последние 20 отзывов, сортировка: новые сначала
+
 		opts := options.Find().
 			SetSort(bson.D{{Key: "created_at", Value: -1}}).
 			SetLimit(20)
@@ -435,8 +514,6 @@ func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ─── main ─────────────────────────────────────────────────────────────────────
-
 func main() {
 	initDB()
 	initRedis()
@@ -444,14 +521,17 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// Страницы
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/booking", bookingHandler)
 	http.HandleFunc("/online", onlineHandler)
 	http.HandleFunc("/doctors", doctorsPageHandler)
-	http.HandleFunc("/admin", adminHandler)
+	http.HandleFunc("/admin/login", adminLoginPage)
+	http.HandleFunc("/admin/auth", adminLoginHandler)
 
-	// API
+	http.HandleFunc("/admin", requireAdmin(adminHandler))
+	http.HandleFunc("/admin/delete_appointment", requireAdmin(deleteAppointmentHandler))
+	http.HandleFunc("/admin/delete_online_appointment", requireAdmin(deleteOnlineAppointmentHandler))
+
 	http.HandleFunc("/api/get_doctors", getDoctorsHandler)
 	http.HandleFunc("/api/get_slots", getSlotsHandler)
 	http.HandleFunc("/api/create_appointment", createAppointmentHandler)

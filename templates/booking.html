@@ -25,7 +25,6 @@
 
             <div class="mb-3">
                 <label class="form-label fw-bold">Дата приема</label>
-                <!-- Используем flatpickr для блокировки выходных -->
                 <input type="text" id="appointmentDate" class="form-control" placeholder="Выберите дату (Пн–Пт)" readonly required>
                 <input type="hidden" id="appointmentDateValue">
                 <div class="form-text text-muted small mt-1">
@@ -60,10 +59,10 @@
     </div>
 </div>
 
-<!-- Flatpickr для красивого календаря с блокировкой дней -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+<script src="https://unpkg.com/imask"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -75,6 +74,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const timeError     = document.getElementById('timeError');
     const bookingForm   = document.getElementById('mainBookingForm');
     const hiddenDate    = document.getElementById('appointmentDateValue');
+
+    // Накладываем интерактивную маску на инпут телефона
+    const phoneInput = document.getElementById('patientPhone');
+    const phoneMask = IMask(phoneInput, {
+        mask: '+7 (000) 000-00-00'
+    });
 
     const ALL_SLOTS = ['12:00','13:00','14:00','15:00','16:00','17:00','18:00'];
 
